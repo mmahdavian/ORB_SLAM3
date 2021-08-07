@@ -46,6 +46,13 @@ class Map;
 
 class KeyFrameDatabase
 {
+    friend class boost::serialization::access;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version)
+    {
+        ar & mvBackupInvertedFileId;
+    }
 
 public:
 
@@ -69,6 +76,8 @@ public:
    // Relocalization
    std::vector<KeyFrame*> DetectRelocalizationCandidates(Frame* F, Map* pMap);
 
+   void PreSave();
+   void PostLoad(map<long unsigned int, KeyFrame*> mpKFid);
    void SetORBVocabulary(ORBVocabulary* pORBVoc);
 
 protected:
@@ -78,6 +87,9 @@ protected:
 
   // Inverted file
   std::vector<list<KeyFrame*> > mvInvertedFile;
+
+  // For save relation without pointer, this is necessary for save/load function
+  std::vector<list<long unsigned int> > mvBackupInvertedFileId;
 
   // Mutex
   std::mutex mMutex;

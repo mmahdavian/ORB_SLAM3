@@ -31,100 +31,25 @@ Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer
 {
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
 
-    bool is_correct = ParseViewerParamFile(fSettings);
-
-    if(!is_correct)
-    {
-        std::cerr << "**ERROR in the config file, the format is not correct**" << std::endl;
-        try
-        {
-            throw -1;
-        }
-        catch(exception &e)
-        {
-
-        }
-    }
-
-    mbStopTrack = false;
-}
-
-bool Viewer::ParseViewerParamFile(cv::FileStorage &fSettings)
-{
-    bool b_miss_params = false;
-
     float fps = fSettings["Camera.fps"];
     if(fps<1)
         fps=30;
     mT = 1e3/fps;
 
-    cv::FileNode node = fSettings["Camera.width"];
-    if(!node.empty())
+    mImageWidth = fSettings["Camera.width"];
+    mImageHeight = fSettings["Camera.height"];
+    if(mImageWidth<1 || mImageHeight<1)
     {
-        mImageWidth = node.real();
-    }
-    else
-    {
-        std::cerr << "*Camera.width parameter doesn't exist or is not a real number*" << std::endl;
-        b_miss_params = true;
+        mImageWidth = 640;
+        mImageHeight = 480;
     }
 
-    node = fSettings["Camera.height"];
-    if(!node.empty())
-    {
-        mImageHeight = node.real();
-    }
-    else
-    {
-        std::cerr << "*Camera.height parameter doesn't exist or is not a real number*" << std::endl;
-        b_miss_params = true;
-    }
+    mViewpointX = fSettings["Viewer.ViewpointX"];
+    mViewpointY = fSettings["Viewer.ViewpointY"];
+    mViewpointZ = fSettings["Viewer.ViewpointZ"];
+    mViewpointF = fSettings["Viewer.ViewpointF"];
 
-    node = fSettings["Viewer.ViewpointX"];
-    if(!node.empty())
-    {
-        mViewpointX = node.real();
-    }
-    else
-    {
-        std::cerr << "*Viewer.ViewpointX parameter doesn't exist or is not a real number*" << std::endl;
-        b_miss_params = true;
-    }
-
-    node = fSettings["Viewer.ViewpointY"];
-    if(!node.empty())
-    {
-        mViewpointY = node.real();
-    }
-    else
-    {
-        std::cerr << "*Viewer.ViewpointY parameter doesn't exist or is not a real number*" << std::endl;
-        b_miss_params = true;
-    }
-
-    node = fSettings["Viewer.ViewpointZ"];
-    if(!node.empty())
-    {
-        mViewpointZ = node.real();
-    }
-    else
-    {
-        std::cerr << "*Viewer.ViewpointZ parameter doesn't exist or is not a real number*" << std::endl;
-        b_miss_params = true;
-    }
-
-    node = fSettings["Viewer.ViewpointF"];
-    if(!node.empty())
-    {
-        mViewpointF = node.real();
-    }
-    else
-    {
-        std::cerr << "*Viewer.ViewpointF parameter doesn't exist or is not a real number*" << std::endl;
-        b_miss_params = true;
-    }
-
-    return !b_miss_params;
+    mbStopTrack = false;
 }
 
 void Viewer::Run()
@@ -145,12 +70,15 @@ void Viewer::Run()
     pangolin::Var<bool> menuFollowCamera("menu.Follow Camera",true,true);
     pangolin::Var<bool> menuCamView("menu.Camera View",false,false);
     pangolin::Var<bool> menuTopView("menu.Top View",false,false);
+    // pangolin::Var<bool> menuSideView("menu.Side View",false,false);
     pangolin::Var<bool> menuShowPoints("menu.Show Points",true,true);
     pangolin::Var<bool> menuShowKeyFrames("menu.Show KeyFrames",true,true);
     pangolin::Var<bool> menuShowGraph("menu.Show Graph",false,true);
     pangolin::Var<bool> menuShowInertialGraph("menu.Show Inertial Graph",true,true);
     pangolin::Var<bool> menuLocalizationMode("menu.Localization Mode",false,true);
     pangolin::Var<bool> menuReset("menu.Reset",false,false);
+    pangolin::Var<bool> menuStepByStep("menu.Step By Step",false,true);  // false, true
+    pangolin::Var<bool> menuStep("menu.Step",false,false);
 
     // Define Camera Render Object (for view / scene browsing)
     pangolin::OpenGlRenderState s_cam(
@@ -189,6 +117,7 @@ void Viewer::Run()
 
         if(mbStopTrack)
         {
+            menuStepByStep = true;
             mbStopTrack = false;
         }
 
@@ -233,10 +162,20 @@ void Viewer::Run()
         {
             menuTopView = false;
             bCameraView = false;
+            /*s_cam.SetProjectionMatrix(pangolin::ProjectionMatrix(1024,768,3000,3000,512,389,0.1,1000));
+            s_cam.SetModelViewMatrix(pangolin::ModelViewLookAt(0,0.01,10, 0,0,0,0.0,0.0, 1.0));*/
             s_cam.SetProjectionMatrix(pangolin::ProjectionMatrix(1024,768,3000,3000,512,389,0.1,10000));
             s_cam.SetModelViewMatrix(pangolin::ModelViewLookAt(0,0.01,50, 0,0,0,0.0,0.0, 1.0));
             s_cam.Follow(Ow);
         }
+
+        /*if(menuSideView && mpMapDrawer->mpAtlas->isImuInitialized())
+        {
+            s_cam.SetProjectionMatrix(pangolin::ProjectionMatrix(1024,768,3000,3000,512,389,0.1,10000));
+            s_cam.SetModelViewMatrix(pangolin::ModelViewLookAt(0.0,0.1,30.0,0,0,0,0.0,0.0,1.0));
+            s_cam.Follow(Twwp);
+        }*/
+
 
         if(menuLocalizationMode && !bLocalizationMode)
         {
@@ -248,6 +187,24 @@ void Viewer::Run()
             mpSystem->DeactivateLocalizationMode();
             bLocalizationMode = false;
         }
+
+        if(menuStepByStep && !bStepByStep)
+        {
+            mpTracker->SetStepByStep(true);
+            bStepByStep = true;
+        }
+        else if(!menuStepByStep && bStepByStep)
+        {
+            mpTracker->SetStepByStep(false);
+            bStepByStep = false;
+        }
+
+        if(menuStep)
+        {
+            mpTracker->mbStep = true;
+            menuStep = false;
+        }
+
 
         d_cam.Activate(s_cam);
         glClearColor(1.0f,1.0f,1.0f,1.0f);
@@ -285,6 +242,7 @@ void Viewer::Run()
             bLocalizationMode = false;
             bFollow = true;
             menuFollowCamera = true;
+            //mpSystem->Reset();
             mpSystem->ResetActiveMap();
             menuReset = false;
         }

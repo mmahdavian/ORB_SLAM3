@@ -61,8 +61,6 @@ public:
     bool both;
 private:
 
-    bool ParseViewerParamFile(cv::FileStorage &fSettings);
-
     bool Stop();
 
     System* mpSystem;

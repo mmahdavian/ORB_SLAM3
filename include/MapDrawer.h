@@ -47,8 +47,6 @@ public:
 
 private:
 
-    bool ParseViewerParamFile(cv::FileStorage &fSettings);
-
     float mKeyFrameSize;
     float mKeyFrameLineWidth;
     float mGraphLineWidth;

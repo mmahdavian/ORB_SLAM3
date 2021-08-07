@@ -137,6 +137,7 @@ int main(int argc, char **argv)
 
             double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
             ttrack_tot += ttrack;
+            // std::cout << "ttrack: " << ttrack << std::endl;
 
             vTimesTrack[ni]=ttrack;
 
@@ -148,7 +149,7 @@ int main(int argc, char **argv)
                 T = tframe-vTimestampsCam[seq][ni-1];
 
             if(ttrack<T)
-                usleep((T-ttrack)*1e6);
+                usleep((T-ttrack)*1e6); // 1e6
         }
         if(seq < num_seq - 1)
         {
@@ -161,6 +162,8 @@ int main(int argc, char **argv)
 
     // Stop all threads
     SLAM.Shutdown();
+
+    // Tracking time statistics
 
     // Save camera trajectory
     std::chrono::system_clock::time_point scNow = std::chrono::system_clock::now();

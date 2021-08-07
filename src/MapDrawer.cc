@@ -31,93 +31,13 @@ MapDrawer::MapDrawer(Atlas* pAtlas, const string &strSettingPath):mpAtlas(pAtlas
 {
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
 
-    bool is_correct = ParseViewerParamFile(fSettings);
+    mKeyFrameSize = fSettings["Viewer.KeyFrameSize"];
+    mKeyFrameLineWidth = fSettings["Viewer.KeyFrameLineWidth"];
+    mGraphLineWidth = fSettings["Viewer.GraphLineWidth"];
+    mPointSize = fSettings["Viewer.PointSize"];
+    mCameraSize = fSettings["Viewer.CameraSize"];
+    mCameraLineWidth = fSettings["Viewer.CameraLineWidth"];
 
-    if(!is_correct)
-    {
-        std::cerr << "**ERROR in the config file, the format is not correct**" << std::endl;
-        try
-        {
-            throw -1;
-        }
-        catch(exception &e)
-        {
-
-        }
-    }
-}
-
-bool MapDrawer::ParseViewerParamFile(cv::FileStorage &fSettings)
-{
-    bool b_miss_params = false;
-
-    cv::FileNode node = fSettings["Viewer.KeyFrameSize"];
-    if(!node.empty())
-    {
-        mKeyFrameSize = node.real();
-    }
-    else
-    {
-        std::cerr << "*Viewer.KeyFrameSize parameter doesn't exist or is not a real number*" << std::endl;
-        b_miss_params = true;
-    }
-
-    node = fSettings["Viewer.KeyFrameLineWidth"];
-    if(!node.empty())
-    {
-        mKeyFrameLineWidth = node.real();
-    }
-    else
-    {
-        std::cerr << "*Viewer.KeyFrameLineWidth parameter doesn't exist or is not a real number*" << std::endl;
-        b_miss_params = true;
-    }
-
-    node = fSettings["Viewer.GraphLineWidth"];
-    if(!node.empty())
-    {
-        mGraphLineWidth = node.real();
-    }
-    else
-    {
-        std::cerr << "*Viewer.GraphLineWidth parameter doesn't exist or is not a real number*" << std::endl;
-        b_miss_params = true;
-    }
-
-    node = fSettings["Viewer.PointSize"];
-    if(!node.empty())
-    {
-        mPointSize = node.real();
-    }
-    else
-    {
-        std::cerr << "*Viewer.PointSize parameter doesn't exist or is not a real number*" << std::endl;
-        b_miss_params = true;
-    }
-
-    node = fSettings["Viewer.CameraSize"];
-    if(!node.empty())
-    {
-        mCameraSize = node.real();
-    }
-    else
-    {
-        std::cerr << "*Viewer.CameraSize parameter doesn't exist or is not a real number*" << std::endl;
-        b_miss_params = true;
-    }
-
-    node = fSettings["Viewer.CameraLineWidth"];
-    if(!node.empty())
-    {
-        mCameraLineWidth = node.real();
-    }
-    else
-    {
-        std::cerr << "*Viewer.CameraLineWidth parameter doesn't exist or is not a real number*" << std::endl;
-        b_miss_params = true;
-    }
-
-    return !b_miss_params;
 }
 
 void MapDrawer::DrawMapPoints()
@@ -184,10 +104,14 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph, const b
                 glLineWidth(mKeyFrameLineWidth*5);
                 glColor3f(1.0f,0.0f,0.0f);
                 glBegin(GL_LINES);
+
+                //cout << "Initial KF: " << mpAtlas->GetCurrentMap()->GetOriginKF()->mnId << endl;
+                //cout << "Parent KF: " << vpKFs[i]->mnId << endl;
             }
             else
             {
                 glLineWidth(mKeyFrameLineWidth);
+                //glColor3f(0.0f,0.0f,1.0f);
                 glColor3f(mfFrameColors[index_color][0],mfFrameColors[index_color][1],mfFrameColors[index_color][2]);
                 glBegin(GL_LINES);
             }
@@ -216,6 +140,32 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph, const b
 
             glPopMatrix();
 
+            //Draw lines with Loop and Merge candidates
+            /*glLineWidth(mGraphLineWidth);
+            glColor4f(1.0f,0.6f,0.0f,1.0f);
+            glBegin(GL_LINES);
+            cv::Mat Ow = pKF->GetCameraCenter();
+            const vector<KeyFrame*> vpLoopCandKFs = pKF->mvpLoopCandKFs;
+            if(!vpLoopCandKFs.empty())
+            {
+                for(vector<KeyFrame*>::const_iterator vit=vpLoopCandKFs.begin(), vend=vpLoopCandKFs.end(); vit!=vend; vit++)
+                {
+                    cv::Mat Ow2 = (*vit)->GetCameraCenter();
+                    glVertex3f(Ow.at<float>(0),Ow.at<float>(1),Ow.at<float>(2));
+                    glVertex3f(Ow2.at<float>(0),Ow2.at<float>(1),Ow2.at<float>(2));
+                }
+            }
+            const vector<KeyFrame*> vpMergeCandKFs = pKF->mvpMergeCandKFs;
+            if(!vpMergeCandKFs.empty())
+            {
+                for(vector<KeyFrame*>::const_iterator vit=vpMergeCandKFs.begin(), vend=vpMergeCandKFs.end(); vit!=vend; vit++)
+                {
+                    cv::Mat Ow2 = (*vit)->GetCameraCenter();
+                    glVertex3f(Ow.at<float>(0),Ow.at<float>(1),Ow.at<float>(2));
+                    glVertex3f(Ow2.at<float>(0),Ow2.at<float>(1),Ow2.at<float>(2));
+                }
+            }*/
+
             glEnd();
         }
     }
@@ -226,6 +176,7 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph, const b
         glColor4f(0.0f,1.0f,0.0f,0.6f);
         glBegin(GL_LINES);
 
+        // cout << "-----------------Draw graph-----------------" << endl;
         for(size_t i=0; i<vpKFs.size(); i++)
         {
             // Covisibility Graph
@@ -320,6 +271,7 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph, const b
                 else
                 {
                     glLineWidth(mKeyFrameLineWidth);
+                    //glColor3f(0.0f,0.0f,1.0f);
                     glColor3f(mfFrameColors[index_color][0],mfFrameColors[index_color][1],mfFrameColors[index_color][2]);
                     glBegin(GL_LINES);
                 }

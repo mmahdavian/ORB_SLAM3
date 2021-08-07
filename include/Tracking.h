@@ -62,11 +62,6 @@ public:
 
     ~Tracking();
 
-    // Parse the config file
-    bool ParseCamParamFile(cv::FileStorage &fSettings);
-    bool ParseORBParamFile(cv::FileStorage &fSettings);
-    bool ParseIMUParamFile(cv::FileStorage &fSettings);
-
     // Preprocess the input and call Track(). Extract features and performs stereo matching.
     cv::Mat GrabImageStereo(const cv::Mat &imRectLeft,const cv::Mat &imRectRight, const double &timestamp, string filename);
     cv::Mat GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const double &timestamp, string filename);
@@ -158,29 +153,13 @@ public:
 
     vector<MapPoint*> GetLocalMapMPS();
 
+
+    //TEST--
+    bool mbNeedRectify;
+    //cv::Mat M1l, M2l;
+    //cv::Mat M1r, M2r;
+
     bool mbWriteStats;
-
-#ifdef REGISTER_TIMES
-    void LocalMapStats2File();
-    void TrackStats2File();
-    void PrintTimeStats();
-
-    vector<double> vdRectStereo_ms;
-    vector<double> vdORBExtract_ms;
-    vector<double> vdStereoMatch_ms;
-    vector<double> vdIMUInteg_ms;
-    vector<double> vdPosePred_ms;
-    vector<double> vdLMTrack_ms;
-    vector<double> vdNewKF_ms;
-    vector<double> vdTrackTotal_ms;
-
-    vector<double> vdUpdatedLM_ms;
-    vector<double> vdSearchLP_ms;
-    vector<double> vdPoseOpt_ms;
-#endif
-
-    vector<int> vnKeyFramesLM;
-    vector<int> vnMapPointsLM;
 
 protected:
 
@@ -219,6 +198,7 @@ protected:
     void PreintegrateIMU();
 
     // Reset IMU biases and compute frame velocity
+    void ResetFrameIMU();
     void ComputeGyroBias(const vector<Frame*> &vpFs, float &bwx,  float &bwy, float &bwz);
     void ComputeVelocitiesAccBias(const vector<Frame*> &vpFs, float &bax,  float &bay, float &baz);
 
@@ -309,7 +289,6 @@ protected:
     unsigned int mnLastRelocFrameId;
     double mTimeStampLost;
     double time_recently_lost;
-    double time_recently_lost_visual;
 
     unsigned int mnFirstFrameId;
     unsigned int mnInitialFrameId;

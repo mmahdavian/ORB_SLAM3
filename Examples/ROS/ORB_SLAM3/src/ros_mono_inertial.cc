@@ -34,7 +34,24 @@
 #include"../../../include/System.h"
 #include"../include/ImuTypes.h"
 
+#include "tf/transform_datatypes.h"
+#include <tf/transform_broadcaster.h>
+#include "geometry_msgs/Point32.h"
+#include "sensor_msgs/PointCloud.h"
+#include "../../../include/Converter.h"
+
+#include <rosbag/bag.h>
+#include <std_msgs/Int32.h>
+#include <std_msgs/String.h>
+
+
 using namespace std;
+ofstream file;
+geometry_msgs::PoseStamped pose;
+geometry_msgs::PoseStamped pose2;
+geometry_msgs::PoseStamped keyframe_pose;
+sensor_msgs::PointCloud cloud;
+std_msgs::String str;
 
 class ImuGrabber
 {
@@ -96,13 +113,68 @@ int main(int argc, char **argv)
   
   // Maximum delay, 5 seconds
   ros::Subscriber sub_imu = n.subscribe("/imu", 1000, &ImuGrabber::GrabImu, &imugb); 
+//  ros::Subscriber sub_img0 = n.subscribe("/camera/image_raw", 100, &ImageGrabber::GrabImage,&igb);
   ros::Subscriber sub_img0 = n.subscribe("/camera/image_raw", 100, &ImageGrabber::GrabImage,&igb);
+  ros::Publisher pose_pub = n.advertise<geometry_msgs::PoseStamped>("orb_pose", 1);
+  ros::Publisher keyframe_pub = n.advertise<geometry_msgs::PoseStamped>("keyframe_pose",1);
+  ros::Publisher cloud_pub = n.advertise<sensor_msgs::PointCloud>("point_cloud",1);
+  ros::Rate loop_rate(30);
+
 
   std::thread sync_thread(&ImageGrabber::SyncWithImu,&igb);
 
-  ros::spin();
+    while (ros::ok())
+    {
+        pose_pub.publish(pose);
+        keyframe_pub.publish(keyframe_pose);
+        cloud_pub.publish(cloud);
+        ros::spinOnce();
+        loop_rate.sleep();
+    }
+
+    // Stop all threads
+    SLAM.Shutdown();
+
+    // Save camera trajectory
+    SLAM.SaveKeyFrameTrajectoryTUM("/home/mohammad/Mohammad_ws/vtr/cube_prepare/KeyFrameTrajectory.txt");
+    ros::shutdown();
+
+//  ros::spin();
 
   return 0;
+}
+
+tf::Transform TransformFromMat (cv::Mat position_mat) {
+  cv::Mat rotation(3,3,CV_32F);
+  cv::Mat translation(3,1,CV_32F);
+
+  rotation = position_mat.rowRange(0,3).colRange(0,3);
+  translation = position_mat.rowRange(0,3).col(3);
+
+  tf::Matrix3x3 tf_camera_rotation (rotation.at<float> (0,0), rotation.at<float> (0,1), rotation.at<float> (0,2),
+                                    rotation.at<float> (1,0), rotation.at<float> (1,1), rotation.at<float> (1,2),
+                                    rotation.at<float> (2,0), rotation.at<float> (2,1), rotation.at<float> (2,2));
+
+  tf::Vector3 tf_camera_translation (translation.at<float> (0), translation.at<float> (1), translation.at<float> (2));
+
+  //Coordinate transformation matrix from orb coordinate system to ros coordinate system
+  const tf::Matrix3x3 tf_orb_to_ros (0, 0, 1,
+                                    -1, 0, 0,
+                                     0,-1, 0);
+
+  //Transform from orb coordinate system to ros coordinate system on camera coordinates
+  tf_camera_rotation = tf_orb_to_ros*tf_camera_rotation;
+  tf_camera_translation = tf_orb_to_ros*tf_camera_translation;
+
+  //Inverse matrix
+  tf_camera_rotation = tf_camera_rotation.transpose();
+  tf_camera_translation = -(tf_camera_rotation*tf_camera_translation);
+
+  //Transform from orb coordinate system to ros coordinate system on map coordinates
+  tf_camera_rotation = tf_orb_to_ros*tf_camera_rotation;
+  tf_camera_translation = tf_orb_to_ros*tf_camera_translation;
+
+  return tf::Transform (tf_camera_rotation, tf_camera_translation);
 }
 
 void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr &img_msg)
@@ -175,7 +247,75 @@ void ImageGrabber::SyncWithImu()
       if(mbClahe)
         mClahe->apply(im,im);
 
-      mpSLAM->TrackMonocular(im,tIm,vImuMeas);
+    cv::Mat Tcw =  mpSLAM->TrackMonocular(im,tIm,vImuMeas);
+    if (!Tcw.empty()) {
+      tf::Transform transform = TransformFromMat (Tcw);
+    }
+
+   if (!Tcw.empty()){
+
+   pose.header.stamp = ros::Time::now();
+   pose.header.frame_id ="map";
+   pose2.header.stamp = ros::Time::now();
+   pose2.header.frame_id ="map";
+
+
+   cv::Mat Rwc = Tcw.rowRange(0,3).colRange(0,3).t(); // Rotation information
+   cv::Mat twc = -Rwc*Tcw.rowRange(0,3).col(3); // translation information
+   vector<float> q = ORB_SLAM3::Converter::toQuaternion(Rwc);
+
+   tf::Transform new_transform;
+   new_transform.setOrigin(tf::Vector3(twc.at<float>(0, 0), twc.at<float>(0, 1), twc.at<float>(0, 2)));
+
+   tf::Quaternion quaternion(q[0], q[1], q[2], q[3]);
+   new_transform.setRotation(quaternion);
+
+   tf::poseTFToMsg(new_transform, pose.pose);
+
+   //////////////////////////////
+   cv::Mat key= mpSLAM->keyframes();
+   keyframe_pose.header.stamp = ros::Time::now();
+   keyframe_pose.header.frame_id = "map";
+
+   cv::Mat Rk = key.rowRange(0,3).colRange(0,3).t(); // Rotation information
+   cv::Mat tk = -Rk*key.rowRange(0,3).col(3); // translation information
+
+   vector<float> qk = ORB_SLAM3::Converter::toQuaternion(Rk);
+
+   tf::Transform new_transform2;
+   new_transform2.setOrigin(tf::Vector3(tk.at<float>(0, 0), tk.at<float>(0, 1), tk.at<float>(0, 2)));
+
+   tf::Quaternion quaternion2(qk[0], qk[1], qk[2], qk[3]);
+   new_transform2.setRotation(quaternion2);
+   tf::poseTFToMsg(new_transform2, keyframe_pose.pose);
+
+
+
+cloud.header.frame_id = "camera_link";
+cloud.header.stamp = ros::Time::now();
+
+std::vector<geometry_msgs::Point32> geo_points;
+std::vector<ORB_SLAM3::MapPoint*> points = mpSLAM->GetTrackedMapPoints();
+
+for (size_t i = 0; i < points.size(); i=i+1) {
+
+    if (points[i]) {
+        cv::Mat coords = points[i]->GetWorldPos();
+        geometry_msgs::Point32 pt;
+        pt.x = coords.at<float>(0);
+        pt.y = coords.at<float>(1);
+        pt.z = coords.at<float>(2);
+        geo_points.push_back(pt);
+
+    } else {
+    }
+}  
+cloud.points = geo_points;
+geo_points.clear();
+
+        }
+
+
     }
 
     std::chrono::milliseconds tSleep(1);

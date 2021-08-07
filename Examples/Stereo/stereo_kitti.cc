@@ -52,7 +52,11 @@ int main(int argc, char **argv)
 
     // Vector for tracking time statistics
     vector<float> vTimesTrack;
-    vTimesTrack.resize(nImages);  
+    vTimesTrack.resize(nImages);
+
+    cout << endl << "-------" << endl;
+    cout << "Start processing sequence ..." << endl;
+    cout << "Images in the sequence: " << nImages << endl << endl;   
 
     // Main loop
     cv::Mat imLeft, imRight;

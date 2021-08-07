@@ -33,12 +33,12 @@ endif()
 
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_modules)
 
-find_package(OpenCV 4.0)
+find_package(OpenCV 3)
 if(NOT OpenCV_FOUND)
-  find_package(OpenCV 3.0)
-  if(NOT OpenCV_FOUND)
-    message(FATAL_ERROR "OpenCV > 3.0 not found.")
-  endif()
+   find_package(OpenCV 2.4.3 QUIET)
+   if(NOT OpenCV_FOUND)
+      message(FATAL_ERROR "OpenCV > 2.4.3 not found.")
+   endif()
 endif()
 
 MESSAGE("OPENCV VERSION:")
@@ -46,7 +46,6 @@ MESSAGE(${OpenCV_VERSION})
 
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(Pangolin REQUIRED)
-find_package(realsense2)
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
@@ -73,6 +72,7 @@ src/Atlas.cc
 src/Map.cc
 src/MapDrawer.cc
 src/Optimizer.cc
+src/PnPsolver.cc
 src/Frame.cc
 src/KeyFrameDatabase.cc
 src/Sim3Solver.cc
@@ -84,7 +84,6 @@ src/CameraModels/Pinhole.cpp
 src/CameraModels/KannalaBrandt8.cpp
 src/OptimizableTypes.cpp
 src/MLPnPsolver.cpp
-src/TwoViewReconstruction.cc
 include/System.h
 include/Tracking.h
 include/LocalMapping.h
@@ -99,6 +98,7 @@ include/Atlas.h
 include/Map.h
 include/MapDrawer.h
 include/Optimizer.h
+include/PnPsolver.h
 include/Frame.h
 include/KeyFrameDatabase.h
 include/Sim3Solver.h
@@ -112,8 +112,7 @@ include/CameraModels/KannalaBrandt8.h
 include/OptimizableTypes.h
 include/MLPnPsolver.h
 include/TwoViewReconstruction.h
-include/Config.h
-)
+src/TwoViewReconstruction.cc)
 
 add_subdirectory(Thirdparty/g2o)
 
@@ -128,17 +127,14 @@ ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.so
 )
 
 
-### Build examples
+# Build examples
 
-# RGB-D examples
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/RGB-D)
-
 add_executable(rgbd_tum
 Examples/RGB-D/rgbd_tum.cc)
 target_link_libraries(rgbd_tum ${PROJECT_NAME})
 
 
-# Stereo examples
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Stereo)
 
 add_executable(stereo_kitti
@@ -153,7 +149,7 @@ add_executable(stereo_tum_vi
 Examples/Stereo/stereo_tum_vi.cc)
 target_link_libraries(stereo_tum_vi ${PROJECT_NAME})
 
-# Monocular examples
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Monocular)
 
 add_executable(mono_tum
@@ -172,7 +168,7 @@ add_executable(mono_tum_vi
 Examples/Monocular/mono_tum_vi.cc)
 target_link_libraries(mono_tum_vi ${PROJECT_NAME})
 
-# Monocular-Inertial examples
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Monocular-Inertial)
 
 add_executable(mono_inertial_euroc
@@ -183,14 +179,16 @@ add_executable(mono_inertial_tum_vi
 Examples/Monocular-Inertial/mono_inertial_tum_vi.cc)
 target_link_libraries(mono_inertial_tum_vi ${PROJECT_NAME})
 
-# Stereo-Inertial examples
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Stereo-Inertial)
 
 add_executable(stereo_inertial_euroc
 Examples/Stereo-Inertial/stereo_inertial_euroc.cc)
 target_link_libraries(stereo_inertial_euroc ${PROJECT_NAME})
 
+
 add_executable(stereo_inertial_tum_vi
 Examples/Stereo-Inertial/stereo_inertial_tum_vi.cc)
 target_link_libraries(stereo_inertial_tum_vi ${PROJECT_NAME})
+
 

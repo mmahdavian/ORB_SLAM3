@@ -20,6 +20,8 @@
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
+//#define SAVE_TIMES
+
 #include <unistd.h>
 #include<stdio.h>
 #include<stdlib.h>
@@ -37,7 +39,6 @@
 #include "ORBVocabulary.h"
 #include "Viewer.h"
 #include "ImuTypes.h"
-#include "Config.h"
 
 
 namespace ORB_SLAM3
@@ -115,7 +116,8 @@ public:
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.
     // Returns the camera pose (empty if tracking fails).
     cv::Mat TrackMonocular(const cv::Mat &im, const double &timestamp, const vector<IMU::Point>& vImuMeas = vector<IMU::Point>(), string filename="");
-
+   
+    cv::Mat keyframes();
 
     // This stops local mapping thread (map building) and performs only camera tracking.
     void ActivateLocalizationMode();
@@ -150,6 +152,9 @@ public:
     void SaveTrajectoryEuRoC(const string &filename);
     void SaveKeyFrameTrajectoryEuRoC(const string &filename);
 
+    // Save data used for initialization debug
+    void SaveDebugData(const int &iniIdx);
+
     // Save camera trajectory in the KITTI dataset format.
     // Only for stereo and RGB-D. This method does not work for monocular.
     // Call first Shutdown()
@@ -173,13 +178,15 @@ public:
 
     void ChangeDataset();
 
-#ifdef REGISTER_TIMES
-    void InsertRectTime(double& time);
+    //void SaveAtlas(int type);
 
-    void InsertTrackTime(double& time);
-#endif
+    Tracking* GetTracker(){return mpTracker;}
 
 private:
+
+    //bool LoadAtlas(string filename, int type);
+
+    //string CalculateCheckSum(string filename, int type);
 
     // Input sensor
     eSensor mSensor;
@@ -190,7 +197,8 @@ private:
     // KeyFrame database for place recognition (relocalization and loop detection).
     KeyFrameDatabase* mpKeyFrameDatabase;
 
-    // Atlas structure that stores the pointers to all KeyFrames and MapPoints.
+    // Map structure that stores the pointers to all KeyFrames and MapPoints.
+    //Map* mpMap;
     Atlas* mpAtlas;
 
     // Tracker. It receives a frame and computes the associated camera pose.
