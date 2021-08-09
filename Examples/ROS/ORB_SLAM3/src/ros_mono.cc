@@ -87,7 +87,7 @@ int main(int argc, char **argv)
 
     ros::NodeHandle nodeHandler;
     ros::Subscriber sub = nodeHandler.subscribe("/camera/image_raw", 1, &ImageGrabber::GrabImage,&igb);
-    ros::Publisher pose_pub = nodeHandler.advertise<geometry_msgs::PoseStamped>("orb_pose_drifted", 1);
+    ros::Publisher pose_pub = nodeHandler.advertise<geometry_msgs::PoseStamped>("orb_pose", 1);
 //    ros::Publisher pose_pub2 = nodeHandler.advertise<geometry_msgs::PoseStamped>("orb_pose2",1);
     ros::Publisher keyframe_pub = nodeHandler.advertise<geometry_msgs::PoseStamped>("keyframe_pose",1);
     ros::Publisher cloud_pub = nodeHandler.advertise<sensor_msgs::PointCloud>("point_cloud",1);   
